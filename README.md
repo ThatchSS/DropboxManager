@@ -1,5 +1,24 @@
 <img src="https://raw.githubusercontent.com/lucasromeiro/DropboxManager/master/readme.png"/>
 
+
+*****************************************************************
+
+
+
+
+                changes to this fork
+                updated hard coded API IP's to dropbox that was causing fails
+                read from SD Card not SPIFFS
+
+
+
+
+*****************************************************************
+
+
+
+
+
 DropboxManager ESP8266
  
 Copyright (c) 2018 Lucas Romeiro
