@@ -136,12 +136,17 @@ https://github.com/lucasromeiro/DropboxManager
 */
 
 
-#include "ESP8266WiFi.h"
-#include "WiFiClientSecure.h" 
-#include "FS.h"
-#include "DropboxManager.h"
 
-#define ver "v1.1.2"
+#include "ESP8266WiFi.h"
+#include "WiFiClientSecure.h"
+#include "DropboxM.h"
+#include "readSerial.h"
+#include "Arduino.h"
+#include <SPI.h>
+#include "SdFat.h"
+#include "sdios.h"
+
+#define ver "v1.0.0"
 //#define debug_mode Serial
 
 
@@ -153,92 +158,98 @@ https://github.com/lucasromeiro/DropboxManager
 #define Aut_Bearer "Authorization: Bearer "
 #define timeout_client 5000
 #define timeout_down 5000
-#define content_API "162.125.5.8"
+//#define content_API "162.125.5.8"
 #define fingerprint_Content_API "9D 86 7B C9 7E 07 D7 5C 86 66 A3 E2 95 C3 B5 45 C5 1E 89 B3"
-#define main_API "162.125.5.7"
+//#define main_API "162.125.5.7"
 #define fingerprint_Main_API "C8 50 54 26 17 A5 FB 9F 19 FC 59 ED 11 43 3C F9 37 F9 64 7F"
 #define oauth2 "/oauth2/token HTTP/1.1\r\n"
 #define host_API "Host: api.dropboxapi.com\r\n"
 #define content_type_urlencoded "Content-Type: application/x-www-form-urlencoded\r\n"
 
-DropboxMan::DropboxMan(){
+SdFat sd;
+//SdFile files;
+File files;
+readSerial rdSer;
+DropboxMan::DropboxMan() {
 
 }
 
-void DropboxMan::begin(String token){
-  
-  if(token.length()<64){
-    #ifdef debug_mode
-      debug_mode.println("FAIL: Small token!");
-    #endif
+void DropboxMan::begin(String token) {
+
+  if (token.length() < 64) {
+#ifdef debug_mode
+    debug_mode.println("FAIL: Small token!");
+    debug_mode.println(token.length());
+#endif
     return;
   }
-  if(token.length()>64){
-    #ifdef debug_mode
-      debug_mode.println("FAIL: Big token!");
-    #endif
+  if (token.length() > 64) {
+#ifdef debug_mode
+    debug_mode.println("FAIL: Big token!");
+#endif
     return;
   }
-  _token=token;
+  _token = token;
 }
 
-String DropboxMan::getToken(String code){
-  
-  if(code.length()<43){
-    #ifdef debug_mode
-      debug_mode.println("FAIL: Small code!");
-    #endif
+String DropboxMan::getToken(String code) {
+
+  if (code.length() < 43) {
+#ifdef debug_mode
+    debug_mode.println("FAIL: Small code!");
+#endif
     return "FAIL: Small code!";
   }
-  if(code.length()>43){
-    #ifdef debug_mode
-      debug_mode.println("FAIL: Big code!");
-    #endif
+  if (code.length() > 43) {
+#ifdef debug_mode
+    debug_mode.println("FAIL: Big code!");
+#endif
     return "FAIL: Big code!";
   }
-  
+
   WiFiClientSecure client;
   //WiFiClientSecure *client= new WiFiClientSecure;
-  #ifdef debug_mode
-    debug_mode.println("Connecting to Dropbox...");
-  #endif
-  if (!client.connect(main_API,443)){
-    #ifdef debug_mode
-      debug_mode.println("Connection failed!");
-    #endif
+#ifdef debug_mode
+  debug_mode.println("Connecting to Dropbox...");
+#endif
+  const char* main_API = "api.dropboxapi.com";
+  if (!client.connect(main_API, 443)) {
+#ifdef debug_mode
+    debug_mode.println("Connection failed!");
+#endif
     //client.close();
     client.stop();
     return "FAIL";
   }
 
-  if (client.verify(fingerprint_Main_API,"api.dropboxapi.com")) {
-    #ifdef debug_mode
-      debug_mode.println("Certificate matches!");
-    #endif
+  if (client.verify(fingerprint_Main_API, "api.dropboxapi.com")) {
+#ifdef debug_mode
+    debug_mode.println("Certificate matches!");
+#endif
   } else {
-    #ifdef debug_mode
-      debug_mode.println("Certificate doesn't match!");
-    #endif
+#ifdef debug_mode
+    debug_mode.println("Certificate doesn't match!");
+#endif
   }
-  
-  
-  String pack ="code=" + code + "&grant_type=authorization_code&client_id=g0xkpmfu025pn8f&client_secret=knagh39wa75p8n9";
+
+
+  String pack = "code=" + code + "&grant_type=authorization_code&client_id=y9t0i1jffzgpeuf&client_secret=ycl1cbi6zcl0u64";
   client.print(String("POST ") + oauth2 +
                host_API +
-               "User-Agent: ESP8266/Arduino_Dropbox_Manager_"+(String)ver+"\r\n" +
+               "User-Agent: Autoclave_Logger_Thing_" + (String)ver + "\r\n" +
                _accept +
                content_type_urlencoded +
                "Content-Length: " + pack.length() + "\r\n\r\n" +
                pack
-               );
-               
-  #ifdef debug_mode
-    debug_mode.println("Request sent!");
-  #endif
+              );
+
+#ifdef debug_mode
+  debug_mode.println("Request sent!");
+#endif
   uint32_t millisTimeoutClient;
   millisTimeoutClient = millis();
   String line;
-  while (client.connected() && ((millis()-millisTimeoutClient)<timeout_client)) {
+  while (client.connected() && ((millis() - millisTimeoutClient) < timeout_client)) {
     line = client.readStringUntil('\n');
     if (line == "\r") {
       break;
@@ -251,327 +262,111 @@ String DropboxMan::getToken(String code){
   //client.close();
   client.stop();
   if (line.startsWith("{\"access_token\": \"")) {
-    #ifdef debug_mode
-      debug_mode.println("Successfull!!!");
-      debug_mode.println("Token:");
-      debug_mode.print(line.substring(line.indexOf("{\"access_token\": \"")+18, line.indexOf("\",")));
-    #endif
-    return line.substring(line.indexOf("{\"access_token\": \"")+18, line.indexOf("\","));
+#ifdef debug_mode
+    debug_mode.println("Successfull!!!");
+    debug_mode.print("Token: ");
+    debug_mode.println(line.substring(line.indexOf("{\"access_token\": \"") + 18, line.indexOf("\",")));
+#endif
+    return line.substring(line.indexOf("{\"access_token\": \"") + 18, line.indexOf("\","));
   } else {
-    #ifdef debug_mode
-      debug_mode.println(line);
-    #endif
+#ifdef debug_mode
+    debug_mode.println(line);
+#endif
     return "FAIL";
   }
 
 }
 
-bool DropboxMan::fileUpload(String localFile, String address, bool type){
+bool DropboxMan::fileUpload(String localFile, String address, bool type) {
   String _mode;
-  if(type){
-    _mode="overwrite";
-  }else{
-    _mode="add";
+  if (type) {
+    _mode = "overwrite";
+  } else {
+    _mode = "add";
   }
   WiFiClientSecure client;
-  //WiFiClientSecure *client= new WiFiClientSecure;
-  #ifdef debug_mode
-    debug_mode.println("Connecting to Dropbox...");
-  #endif
-  if (!client.connect(content_API,443)){
-    #ifdef debug_mode
-      debug_mode.println("Connection failed!");
-    #endif
-    //client.close();
+#ifdef debug_mode
+  debug_mode.println("Connecting to Dropbox...");
+#endif
+  ESP.wdtFeed();
+  const char *content_API = "content.dropboxapi.com";
+  if (!client.connect(content_API, 443)) {
+    ESP.wdtFeed();
+#ifdef debug_mode
+    debug_mode.println("Connection failed!");
+#endif
+    ESP.wdtFeed();
     client.stop();
     return false;
   }
-
-  if (client.verify(fingerprint_Content_API,"content.dropboxapi.com")) {
-    #ifdef debug_mode
-      debug_mode.println("Certificate matches!");
-    #endif
+  ESP.wdtFeed();
+  if (client.verify(fingerprint_Content_API, "content.dropboxapi.com")) {
+#ifdef debug_mode
+    debug_mode.println("Certificate matches!");
+#endif
   } else {
-    #ifdef debug_mode
-      debug_mode.println("Certificate doesn't match!");
-    #endif
+#ifdef debug_mode
+    debug_mode.println("Certificate doesn't match!");
+#endif
   }
-
-  if(!SPIFFS.begin()){
-      #ifdef debug_mode
-        debug_mode.println("Failed to open file system...");
-      #endif
-      //client.close();
-      client.stop();
-      return false;
-    } else {
-      #ifdef debug_mode
-        debug_mode.println("Open file system successfully!");
-      #endif
-    }
-  
-  File files = SPIFFS.open(localFile,"r+");
-  uint32_t sizeFile=files.size();
-
+  sd.begin(16);
+  char newFileName[40];
+  localFile.toCharArray(newFileName, 40);
+  files = sd.open(newFileName, O_READ);
+  uint32_t sizeFile = files.size();
   client.print(String("POST ") + upload +
                host_content +
-               "User-Agent: ESP8266/Arduino_Dropbox_Manager_"+(String)ver+"\r\n" +
-               (String)Aut_Bearer + (String)_token +"\r\n" +
+               "User-Agent: Autoclave_Logger_Thing_" + (String)ver + "\r\n" +
+               (String)Aut_Bearer + (String)_token + "\r\n" +
                _accept +
                "Dropbox-API-Arg: {\"path\": \"" + address + "\",\"mode\": \"" + _mode + "\",\"autorename\": true,\"mute\": false}\r\n" +
                content_type_octet +
                "Content-Length: " + sizeFile + "\r\n\r\n"
-               );
-  uint32_t index=0;
-  char _buffer[1001];
-  while(index<sizeFile){ 
+              );
+  uint32_t index = 0;
+  char _buffer[751];
+  while (index < sizeFile) {
     yield();
     ESP.wdtFeed();
-    index=index+1000;
-    files.readBytes(_buffer,1000);
-    _buffer[1000]='\0';
+    index = index + 750;
+    files.readBytes(_buffer, 750);
+    _buffer[750] = '\0';
     client.print(_buffer);
+    yield();
+    ESP.wdtFeed();
+    delay(200);
+    client.flush();
   }
   client.flush();
-  files.close();   
-  SPIFFS.end();
-  #ifdef debug_mode
-    debug_mode.println("Request sent!");
-  #endif
+  files.close();
+#ifdef debug_mode
+  debug_mode.println("Request sent!");
+#endif
   uint32_t millisTimeoutClient;
   millisTimeoutClient = millis();
   String line;
-  while (client.connected() && ((millis()-millisTimeoutClient)<timeout_client)) {
+  while (client.connected() && ((millis() - millisTimeoutClient) < timeout_client)) {
     line = client.readStringUntil('\n');
     if (line == "\r") {
       break;
     }
   }
-  
-  line = client.readStringUntil('\n');
-  line = client.readStringUntil('\n');
-  //client.close();
-  client.stop();
-  //delete client;
-  if (line.startsWith("{\"name\": \"")) {
-    #ifdef debug_mode
-      debug_mode.println("Successfull!!!");
-      debug_mode.println("File sent!");
-    #endif
-    return true;
-  } else {
-    #ifdef debug_mode
-      debug_mode.println("ERROR!!!");
-      debug_mode.println(line);
-    #endif
-    return false;
-  }
-}
 
-bool DropboxMan::stringUpload(String data, String address, bool type){
-  String _mode;
-  if(type){
-    _mode="overwrite";
-  }else{
-    _mode="add";
-  }
-  WiFiClientSecure client;
-  #ifdef debug_mode
-    debug_mode.println("Connecting to Dropbox...");
-  #endif
-  if (!client.connect(content_API,443)){
-    #ifdef debug_mode
-      debug_mode.println("Connection failed!");
-    #endif
-    return false;
-  }
-
-  if (client.verify(fingerprint_Content_API,"content.dropboxapi.com")) {
-    #ifdef debug_mode
-      debug_mode.println("Certificate matches!");
-    #endif
-  } else {
-    #ifdef debug_mode
-      debug_mode.println("Certificate doesn't match!");
-    #endif
-  }        
-         
-  client.print(String("POST ") + upload +
-               host_content +
-               "User-Agent: ESP8266/Arduino_Dropbox_Manager_"+(String)ver+"\r\n" +
-               (String)Aut_Bearer + (String)_token +"\r\n" +
-               _accept +
-               "Dropbox-API-Arg: {\"path\": \"" + address + "\",\"mode\": \"" + _mode + "\",\"autorename\": true,\"mute\": false}\r\n" +
-               content_type_octet +
-               "Content-Length: " + data.length() + "\r\n\r\n" +
-               data
-               );
-  client.flush();
-  #ifdef debug_mode
-    debug_mode.println("Request sent!");
-  #endif
-  uint32_t millisTimeoutClient;
-  millisTimeoutClient = millis();
-  String line;
-  while (client.connected() && ((millis()-millisTimeoutClient)<timeout_client)) {
-    line = client.readStringUntil('\n');
-    if (line == "\r") {
-      break;
-    }
-  }  
   line = client.readStringUntil('\n');
   line = client.readStringUntil('\n');
-  //client.close();
   client.stop();
   if (line.startsWith("{\"name\": \"")) {
-    #ifdef debug_mode
-      debug_mode.println("Successfull!!!");
-      debug_mode.println("File sent!");
-    #endif
+#ifdef debug_mode
+    debug_mode.println("Successfull!!!");
+    debug_mode.println("File sent!");
+#endif
     return true;
   } else {
-    #ifdef debug_mode
-      debug_mode.println("ERROR!!!");
-      debug_mode.println(line);
-    #endif
-    return false;
-  }
-  
-}
-
-bool DropboxMan::fileDownload(String localFile, String address, bool type){
-  
-
-  WiFiClientSecure client;
-  //WiFiClientSecure *client= new WiFiClientSecure;
-  #ifdef debug_mode
-    debug_mode.println("Connecting to Dropbox...");
-  #endif
-  if (!client.connect(content_API,443)){
-    #ifdef debug_mode
-      debug_mode.println("Connection failed!");
-    #endif
-    //client.close();
-    client.stop();
-    return false;
-  }
-
-  if (client.verify(fingerprint_Content_API,"content.dropboxapi.com")) {
-    #ifdef debug_mode
-      debug_mode.println("Certificate matches!");
-    #endif
-  } else {
-    #ifdef debug_mode
-      debug_mode.println("Certificate doesn't match!");
-    #endif
-  }
-
-  if(!SPIFFS.begin()){
-      #ifdef debug_mode
-        debug_mode.println("Failed to open file system...");
-      #endif
-      //client.close();
-      client.stop();
-      return false;
-  } else {
-      #ifdef debug_mode
-        debug_mode.println("Open file system successfully!");
-      #endif
-  }
-
-  client.print(String("POST ") + download +
-               host_content +
-               "User-Agent: ESP8266/Arduino_Dropbox_Manager_"+(String)ver+"\r\n" +
-               (String)Aut_Bearer + (String)_token +"\r\n" +
-               _accept +
-               "Dropbox-API-Arg: {\"path\": \"" + address + "\"}\r\n\r\n"// +
-               //"Content-Length: 0\r\n\r\n"
-               );
-  
-        
-  #ifdef debug_mode
-    debug_mode.println("Request sent!");
-  #endif
-  uint32_t millisTimeoutClient;
-  millisTimeoutClient = millis();
-  String line;
-  bool ok;
-  uint32_t contentData;
-  ok=0;
-  while (client.connected() && ((millis()-millisTimeoutClient)<timeout_client)) {
-    line = client.readStringUntil('\n');
-    if (line == "\r") {
-      break;
-    }
-    if(line.indexOf("original-content-length: ")!=-1){
-      contentData=line.substring(line.indexOf("original-content-length: ")+25).toInt();//lenght data
-    }
-    if(line.indexOf("\", \"path_display\": \""+address+"\", \"")!=-1){
-      ok=1;
-    }
-  }
-
-  if(ok){
-    if(type){
-      SPIFFS.remove(localFile);
-      #ifdef debug_mode
-          debug_mode.println("Old file removed!");
-      #endif 
-    }else{
-      if(SPIFFS.exists(localFile)){
-        #ifdef debug_mode
-          debug_mode.println("Aborted, file exist!");
-        #endif   
-        SPIFFS.end();
-        client.stop();
-        return false;
-      }
-    }
-    char _buffer[1001];
-    millisTimeoutClient = millis();
-    File files = SPIFFS.open(localFile,"a");
-    while (client.connected() && ((millis()-millisTimeoutClient)<timeout_down)) {
-      if (client.available()) {
-        millisTimeoutClient = millis();
-        yield();
-        ESP.wdtFeed();
-
-        client.readBytes(_buffer,1000);
-        if(contentData>=1000){
-          _buffer[1000]='\0';
-          contentData=contentData-1000;
-        }else{
-          _buffer[contentData]='\0';
-          contentData=0;
-        }
-        
-        files.print(_buffer);
-      }
-    }
-      
-    files.close();   
-    SPIFFS.end();
-  }
-  //client.close();
-  client.stop();
-  //delete client;
-  if (ok) {
-    #ifdef debug_mode
-      debug_mode.println("Successfull!!!");
-      debug_mode.println("File downloaded!!!");
-    #endif
-    return true;
-  } else {
-    #ifdef debug_mode
-      debug_mode.println("ERROR!!!");
-      debug_mode.println(client.readString());
-    #endif
+#ifdef debug_mode
+    debug_mode.println("ERROR!!!");
+    debug_mode.println(line);
+#endif
+    Serial.println("ERROR!!!");
     return false;
   }
 }
-
-
-
-
-
-
