@@ -10,13 +10,14 @@
                 updated hard coded API IP's to dropbox that was causing fails
                 read from SD Card not SPIFFS
                 reduced to 3 functions 
-                *   void DropboxMan::begin(String token) {
+                
+                   void DropboxMan::begin(String token) {
 
                 }
-                *   String DropboxMan::getToken(String code) {
+                   String DropboxMan::getToken(String code) {
 
                 }
-                *   bool DropboxMan::fileUpload(String localFile, String address, bool type){
+                   bool DropboxMan::fileUpload(String localFile, String address, bool type){
                     
                 }
 

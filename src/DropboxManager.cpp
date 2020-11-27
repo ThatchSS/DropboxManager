@@ -233,7 +233,7 @@ String DropboxMan::getToken(String code) {
   }
 
 
-  String pack = "code=" + code + "&grant_type=authorization_code&client_id=y9t0i1jffzgpeuf&client_secret=ycl1cbi6zcl0u64";
+  String pack = "code=" + code + "&grant_type=authorization_code&client_id=y9t0i1jffzgpeuf&client_secret=<client_secret>";
   client.print(String("POST ") + oauth2 +
                host_API +
                "User-Agent: Autoclave_Logger_Thing_" + (String)ver + "\r\n" +
